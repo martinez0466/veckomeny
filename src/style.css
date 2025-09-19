@@ -1,5 +1,5 @@
 :root {
-  /* Fresh, food-friendly palette */
+  /* Food-friendly palette */
   --bg: #0e1b16;
   /* deep green */
   --surface: #12221a;
@@ -13,6 +13,11 @@
   --danger: #ef4444;
   /* red for destructive */
   --radius: 16px;
+
+  /* Accents for priority */
+  --prio-high: #f59e0b;
+  --prio-normal: #86efac;
+  --prio-low: #60a5fa;
 }
 
 * {
@@ -28,20 +33,19 @@ body,
 body {
   margin: 0;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-  /* subtle greenish gradient background */
   background:
     radial-gradient(1100px 700px at 20% 10%, #103424 0%, var(--bg) 55%),
     linear-gradient(180deg, #0b1712 0%, var(--bg) 100%);
   color: var(--text);
 }
 
+/* Layout */
 .container {
-  max-width: 960px;
+  max-width: 1024px;
   margin: 0 auto;
   padding: 24px;
 }
 
-/* Card */
 .card {
   background: linear-gradient(180deg, rgba(255, 255, 255, .04), rgba(255, 255, 255, .02));
   border: 1px solid rgba(255, 255, 255, .07);
@@ -62,10 +66,40 @@ body {
   grid-template-columns: 1fr 1fr;
 }
 
+/* Desktop spacing (>= 900px) */
+@media (min-width: 900px) {
+  .container {
+    padding: 32px;
+  }
+
+  .card {
+    padding: 24px;
+  }
+
+  .section-title {
+    font-size: 1.35rem;
+  }
+}
+
+/* Mobile first: stack inputs, tighten spacing */
 @media (max-width: 700px) {
   .row-2 {
     grid-template-columns: 1fr;
   }
+
+  .container {
+    padding: 16px;
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  .hero-img {
+    display: none;
+  }
+
+  /* auto-hide large media on small screens */
 }
 
 /* Form + buttons */
@@ -108,6 +142,12 @@ button.danger {
   color: #fff;
 }
 
+button.secondary {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, .18);
+  color: var(--text);
+}
+
 button:disabled {
   opacity: .6;
   cursor: not-allowed;
@@ -138,4 +178,72 @@ button:disabled {
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, .08);
   box-shadow: 0 10px 24px rgba(0, 0, 0, .25);
+}
+
+/* Meal items + priority visuals */
+.meal-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 8px;
+  background: #0e1a13;
+  position: relative;
+}
+
+.meal-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 12px 0 0 12px;
+  opacity: .9;
+}
+
+.meal-item.prio-high::before {
+  background: var(--prio-high);
+}
+
+.meal-item.prio-normal::before {
+  background: var(--prio-normal);
+  opacity: .6;
+}
+
+.meal-item.prio-low::before {
+  background: var(--prio-low);
+  opacity: .5;
+}
+
+/* Compact tweak for list items (applied via class) */
+.meal-item.compact {
+  padding: 8px;
+}
+
+/* Priority badges */
+.pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: .8rem;
+  border: 1px solid rgba(255, 255, 255, .2);
+  margin-left: 8px;
+}
+
+.pill-high {
+  background: rgba(245, 158, 11, .15);
+  border-color: rgba(245, 158, 11, .5);
+}
+
+.pill-normal {
+  background: rgba(134, 239, 172, .12);
+  border-color: rgba(134, 239, 172, .5);
+}
+
+.pill-low {
+  background: rgba(96, 165, 250, .12);
+  border-color: rgba(96, 165, 250, .5);
 }

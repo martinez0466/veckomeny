@@ -8,13 +8,10 @@ const uuid = () =>
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2)
 
-/* Hero image:
-   - Preferred: place your own image at /public/food.jpg
-   - Fallback: a pleasant Unsplash image (auto-applied if /food.jpg missing)
-*/
+/* Hero image sources */
 const HERO_LOCAL = '/food.jpg'
 const HERO_FALLBACK =
-  'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=1600&auto=format&fit=crop'  // CC-friendly preview
+  'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=1600&auto=format&fit=crop'
 
 /* =========  State  ========= */
 /** User profile / settings */
@@ -26,14 +23,21 @@ const user = reactive({
 /** Domain state: list stored inside an object (course requirement) */
 const planner = reactive({
   meals: [
-    // Example item (safe to delete)
-    { id: uuid(), day: 'Monday', dish: 'Pesto pasta' },
+    { id: uuid(), day: 'Monday', dish: 'Pesto pasta', priority: 'normal' }, // example
   ],
 })
 
 /** Form state */
 const newDay = ref('Monday')
 const newDish = ref('')
+const newPriority = ref('normal') // low | normal | high
+
+/** View state (custom functionality) */
+const compactMode = ref(false)     // hides hero, tightens list
+const prioritizeHigh = ref(true)   // bring high-priority items to the top
+
+/** Search (optional helper) */
+const query = ref('')
 
 /* =========  Computed / UI helpers  ========= */
 const formError = ref('')
@@ -41,11 +45,30 @@ const greeting = computed(() => (user.name ? `Hi, ${user.name}!` : 'Welcome!'))
 const canPlan = computed(() => user.name.trim().length > 0)
 const canSubmit = computed(() => newDish.value.trim().length > 0)
 
-/** Sorted view of meals by weekday order */
+/** Filtering + sorting */
 const WEEKDAYS_EN = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-const sortedMeals = computed(() =>
-  [...planner.meals].sort((a, b) => WEEKDAYS_EN.indexOf(a.day) - WEEKDAYS_EN.indexOf(b.day))
-)
+const PRIO_ORDER = { high: 0, normal: 1, low: 2 }
+
+const filteredMeals = computed(() => {
+  const q = query.value.trim().toLowerCase()
+  if (!q) return planner.meals
+  return planner.meals.filter(
+    (m) => m.dish.toLowerCase().includes(q) || m.day.toLowerCase().includes(q)
+  )
+})
+
+const visibleMeals = computed(() => {
+  const list = [...filteredMeals.value]
+  return list.sort((a, b) => {
+    // priority-first if toggle is ON
+    if (prioritizeHigh.value) {
+      const pr = (PRIO_ORDER[a.priority] ?? 1) - (PRIO_ORDER[b.priority] ?? 1)
+      if (pr !== 0) return pr
+    }
+    // then weekday order
+    return WEEKDAYS_EN.indexOf(a.day) - WEEKDAYS_EN.indexOf(b.day)
+  })
+})
 
 /* =========  Persistence (localStorage)  ========= */
 const STORAGE_KEYS = { user: 'mp_user_v1', meals: 'mp_meals_v1' }
@@ -69,7 +92,12 @@ function loadState() {
       if (Array.isArray(parsed)) {
         planner.meals = parsed
           .filter((it) => it && it.id && it.day && it.dish)
-          .map((it) => ({ id: it.id, day: it.day, dish: it.dish }))
+          .map((it) => ({
+            id: it.id,
+            day: it.day,
+            dish: it.dish,
+            priority: it.priority ?? 'normal',
+          }))
       }
     }
   } catch (_) {}
@@ -97,12 +125,18 @@ watch(
 function addMeal() {
   const dish = newDish.value.trim()
   if (!dish) { formError.value = 'Please enter a dish before adding.'; return }
+
   const duplicate = planner.meals.some(
-    (m) => m.day === newDay.value && m.dish.toLowerCase() === dish.toLowerCase()
+    (m) =>
+      m.day === newDay.value &&
+      m.dish.toLowerCase() === dish.toLowerCase() &&
+      m.priority === newPriority.value
   )
-  if (duplicate) { formError.value = 'That dish already exists for the selected day.'; return }
-  planner.meals.push({ id: uuid(), day: newDay.value, dish })
+  if (duplicate) { formError.value = 'That dish with the same priority already exists for that day.'; return }
+
+  planner.meals.push({ id: uuid(), day: newDay.value, dish, priority: newPriority.value })
   newDish.value = ''
+  newPriority.value = 'normal'
   formError.value = ''
 }
 
@@ -110,7 +144,6 @@ function removeMeal(id) {
   planner.meals = planner.meals.filter((m) => m.id !== id)
 }
 
-/** Clear all meals (with confirmation) */
 function clearMeals() {
   if (planner.meals.length === 0) return
   const ok = confirm('Remove ALL meals? This cannot be undone.')
@@ -118,7 +151,6 @@ function clearMeals() {
   planner.meals = []
 }
 
-/** Reset profile (user + meals + storage) */
 function resetProfile() {
   const ok = confirm('Reset your name, diet, and all meals? This cannot be undone.')
   if (!ok) return
@@ -140,11 +172,12 @@ function resetProfile() {
       <p class="help">Plan your meals for the week. Add, edit, and remove dishes.</p>
       <p class="help" style="margin-top:8px;">{{ greeting }}</p>
 
-      <!-- Nice hero image -->
+      <!-- Hero (hidden in compact mode, and auto-hidden on small screens via CSS) -->
       <img
+        v-if="!compactMode"
         class="hero-img"
         :src="HERO_LOCAL"
-        :alt="`Delicious food hero image`"
+        alt="Delicious food hero image"
         @error="(e) => (e.target.src = HERO_FALLBACK)"
         style="margin-top:12px;"
       />
@@ -169,13 +202,19 @@ function resetProfile() {
         </div>
       </div>
 
-      <!-- Profile utilities -->
+      <!-- View toggles -->
       <div style="margin-top:12px; display:flex; gap:12px; flex-wrap:wrap;">
+        <button class="secondary" @click="compactMode = !compactMode">
+          {{ compactMode ? 'Exit compact mode' : 'Enter compact mode' }}
+        </button>
+        <button class="secondary" @click="prioritizeHigh = !prioritizeHigh">
+          {{ prioritizeHigh ? 'Disable prioritize-high' : 'Enable prioritize-high' }}
+        </button>
         <button class="danger" @click="resetProfile">Reset profile</button>
       </div>
     </section>
 
-    <!-- Planning (shown only when a name is provided) -->
+    <!-- Add meal -->
     <section class="card" v-if="canPlan">
       <h2 class="section-title">Add meal</h2>
       <form @submit.prevent="addMeal">
@@ -203,6 +242,18 @@ function resetProfile() {
             />
           </div>
         </div>
+
+        <div class="row" style="margin-top:8px;">
+          <div>
+            <label class="label" for="prio">Priority</label>
+            <select id="prio" v-model="newPriority">
+              <option value="low">Low</option>
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+        </div>
+
         <div style="margin-top:12px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
           <button type="submit" :disabled="!canSubmit">Add</button>
           <span id="dish-help" class="help" v-if="formError">{{ formError }}</span>
@@ -210,22 +261,41 @@ function resetProfile() {
       </form>
     </section>
 
-    <!-- Meals list (from object `planner.meals`) -->
+    <!-- Meals list -->
     <section class="card" v-if="canPlan">
       <h2 class="section-title">
-        Meals this week <small class="help">({{ planner.meals.length }})</small>
+        Meals this week
+        <small class="help">
+          ({{ query ? `${visibleMeals.length} / ${planner.meals.length}` : planner.meals.length }})
+        </small>
       </h2>
 
-      <p v-if="planner.meals.length === 0" class="help">No meals yet.</p>
+      <!-- Search -->
+      <div class="row" style="margin:8px 0 12px;">
+        <div>
+          <label class="label" for="search">Search meals</label>
+          <input id="search" v-model="query" placeholder="Type dish or day (e.g., Friday, tacos)" />
+        </div>
+      </div>
 
-      <ul style="list-style:none; padding:0; margin:0;">
+      <!-- Empty states -->
+      <p v-if="planner.meals.length === 0" class="help">No meals yet.</p>
+      <p v-else-if="visibleMeals.length === 0" class="help">No results for “{{ query }}”.</p>
+
+      <!-- List -->
+      <ul v-else style="list-style:none; padding:0; margin:0;">
         <li
-          v-for="m in sortedMeals"
+          v-for="m in visibleMeals"
           :key="m.id"
-          style="display:flex; align-items:center; justify-content:space-between; border:1px solid rgba(255,255,255,.06); border-radius:12px; padding:10px; margin-bottom:8px; background:#0e1a13;"
+          :class="['meal-item', `prio-${m.priority}`, { compact: compactMode }]"
         >
           <div>
             <strong>{{ m.day }}:</strong> {{ m.dish }}
+            <span class="pill" :class="{
+              'pill-high': m.priority==='high',
+              'pill-normal': m.priority==='normal',
+              'pill-low': m.priority==='low'
+            }">{{ m.priority }}</span>
           </div>
           <div style="display:flex; gap:8px;">
             <button class="danger" @click="removeMeal(m.id)">Remove</button>
@@ -233,7 +303,7 @@ function resetProfile() {
         </li>
       </ul>
 
-      <!-- List utility actions -->
+      <!-- List actions -->
       <div style="margin-top:12px;">
         <button class="danger" @click="clearMeals" :disabled="planner.meals.length === 0">
           Clear all meals
@@ -241,7 +311,7 @@ function resetProfile() {
       </div>
     </section>
 
-    <!-- Onboarding when name is missing -->
+    <!-- Onboarding -->
     <section class="card" v-else>
       <h2 class="section-title">Get started</h2>
       <p class="help">Enter your name above to start planning your weekly meals.</p>
@@ -250,5 +320,4 @@ function resetProfile() {
 </template>
 
 <style scoped>
-/* Keep component-level styling minimal – global rules are in src/style.css */
 </style>

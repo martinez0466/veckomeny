@@ -1,0 +1,21 @@
+## Kort funktionsbeskrivning — Weekly Meal Planner
+
+**Egen funktionalitet**
+- **Prioritet per rätt:** Varje rätt får *low / normal / high* vid “Add meal”. Rader markeras visuellt med en färgstripe + **badge** (class/style binding).
+- **Prioritize high:** Toggle som lyfter **high** överst i listan, därefter sorteras enligt veckodag (Mon–Sun).
+- **Compact mode:** Toggle som **gömmer hero-bilden** och gör listan **tätare** – bra på mobil/fokus (styrt med `v-if` + `:class`).
+- **Responsiv design:** **Grid/Flex** och **media queries** ger luftig layout på desktop/tablet och kompakt layout på mobil.
+
+**Hur koden löser det (kort)**
+- **Direktiv & events:** `v-model`, `v-if`, `v-for`, `@submit.prevent`, `@click`.
+- **Bindingar:** `:class` (prio/compact), `:src` (hero-bild med fallback), `:aria-*` (tillgänglighet).
+- **Logik:** `visibleMeals` (computed) sorterar efter `PRIO_ORDER` (high→low) och sedan `WEEKDAYS_EN`.  
+- **Persistens:** `onMounted` + `watch` sparar/laddar `user` och `meals` till/från `localStorage`.
+
+**Skärmdumpar att bifoga**
+1. “Add meal” med **Priority**-fältet synligt.  
+2. Lista med olika prioritet + **Prioritize high = ON** (high överst).  
+3. **Compact mode = ON** (hero dold, tätare lista) – gärna i **mobilbredd**.
+
+**Förbättringsförslag (minst ett)**
+- **Inline-redigering av rätter:** Klick på en rad öppnar edit-läge för **day/dish/priority** med samma validering som “Add meal” (`v-if/v-else` + lokalt “edit state”).
